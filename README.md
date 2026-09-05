@@ -1,81 +1,99 @@
-<div align="center">
+# 🦖 Babel Zilla — Neural Localization Engine
 
-# 🦖 BABEL-ZILLA : NEURAL LOCALIZATION ENGINE (v2.1)
-
-[![Python 3.12](https://img.shields.io/badge/Python-3.12-00F?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Vertex AI](https://img.shields.io/badge/Vertex_AI-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white)](https://cloud.google.com/vertex-ai)
 [![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![GCP](https://img.shields.io/badge/GCP-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white)](https://cloud.google.com/)
 
-*Motor de traducción semántico de alto rendimiento, optimizado para la nube y diseñado para preservar la lógica de negocio.*
+Motor de localización semántica de alto rendimiento para aplicaciones modernas. Traduce payloads `i18n` preservando variables `{{user}}`, etiquetas HTML y tono de marca, con caché relacional para respuesta `0ms` en hits.
 
----
-</div>
-
-## 🌌 Mi Visión
-He diseñado **Babel-Zilla** para ser algo más que un simple traductor. Mi objetivo es resolver la localización de aplicaciones modernas mediante **IA Generativa (Gemini 2.5 Flash)**. Mi motor no solo traduce palabras; entiende el contexto cultural, respeta el tono de voz de la marca y garantiza que la lógica del software (variables y etiquetas HTML) permanezca intacta.
-
-He escalado el motor para soportar una **audiencia global**, integrando idiomas como **Chino, Coreano, Japonés, Francés y Portugués**. El sistema asegura que el parámetro psicológico del "tono" dicte con precisión los matices lingüísticos de cada región.
-
-Combinando la potencia de Google Cloud con una **capa de persistencia en Neon (PostgreSQL)**, he logrado que mi sistema ofrezca respuestas instantáneas (0ms) mediante una caché inteligente, reduciendo costos y latencia al mínimo, incluso bajo alta carga de peticiones transculturales.
+> **Stack:** `FastAPI (Python 3.12) + Gemini 2.5 Flash (Vertex AI) + PostgreSQL (Neon) + Docker + Cloud Run`
 
 ---
 
-## 🛠️ Mi Arquitectura de Producción
+## ✨ Características
 
-He estructurado este microservicio para ser escalable y seguro:
+- **Traducción con contexto:** respeta `target_lang, tone, culture, context_hint` (ej. `Spanish / Casual / Peruvian`)
+- **Preservación de lógica:** no rompe placeholders `{{var}}` ni HTML
+- **Caché inteligente:** `hash + perfil` en PostgreSQL (`JSONB`) — `from_cache: true` en hits
+- **Multilenguaje:** ES, EN, PT, FR, JA, KO, ZH y extensible por perfil
+- **API batch:** traduce 1..N textos en una sola petición
 
-| Componente | Tecnología | Mi Rol |
-| :--- | :--- | :--- |
-| **API Framework** | FastAPI | Interfaz asíncrona de alto rendimiento. |
-| **Reasoning Engine**| Vertex AI (Gemini 2.5 Flash) | Mi "cerebro" para razonamiento semántico. |
-| **Memory Bank** | Neon PostgreSQL | Mi "memoria" persistente para caché y perfiles. |
-| **Cloud Deployment**| Google Cloud Run | Mi infraestructura serverless con escalado automático. |
-| **CI/CD** | Cloud Build + GitHub | Despliegue automático con cada cambio en mi código. |
+## 🏗️ Arquitectura
 
----
-
-## 🛡️ Seguridad y Limpieza
-En esta versión 2.1, he realizado un proceso de **limpieza profunda del historial de Git** para asegurar que ninguna credencial quede expuesta, reiniciando el repositorio con un archivo `.gitignore` robusto y profesional. La seguridad es mi prioridad.
-
----
-
-## 🚀 Instalación y Configuración
-
-### 🐳 Despliegue Rápido con Docker (Recomendado)
-
-He configurado este proyecto para que puedas levantarlo en segundos usando contenedores. Esto iniciará la base de datos PostgreSQL local, la API principal y el backend secundario automáticamente:
-
-1. Crea tu archivo `.env` en la raíz basándote en la estructura que detallo más abajo.
-2. Coloca tu archivo de credenciales de Google Cloud (`.json`) en la ruta configurada en los volúmenes de tu `docker-compose.yml`.
-3. Ejecuta el entorno completo en la terminal:
-   ```bash
-   docker-compose up --build -d
-   ```
-¡Listo! La API estará escuchando peticiones en `http://localhost:8000`.
-
----
-
-### 🛠️ Configuración Manual
-
-#### 1. Requisitos Previos
-- Cuenta en Google Cloud con la API de Vertex AI habilitada.
-- Base de datos PostgreSQL (Recomiendo **Neon.tech** para despliegue manual en la nube).
-
-#### 2. Configuración de Entorno
-Debes crear un archivo `.env` en la raíz con las siguientes variables:
-```env
-# Conexión a Base de Datos (Neon)
-DATABASE_URL=tu_url_de_neon_aqui
-
-# Identidad Google Cloud
-GOOGLE_PROJECT_ID=tu-id-de-proyecto
-GOOGLE_LOCATION=us-central1
+```mermaid
+graph LR
+  Client --> FastAPI
+  FastAPI --> Cache[(PostgreSQL - Neon)]
+  FastAPI -->|miss| VertexAI[Vertex AI - Gemini 2.5 Flash]
+  VertexAI --> FastAPI
+  FastAPI --> DB[(tablas: textos_originales, perfiles, traducciones)]
+  FastAPI --> Client
 ```
 
-### 3. Inicialización de mi Memoria (SQL)
-Para que pueda guardar traducciones en la caché, debes ejecutar este script SQL en tu base de datos:
+| Componente | Tecnología | Responsabilidad |
+| :--- | :--- | :--- |
+| API | FastAPI + Uvicorn | Endpoints asíncronos, validación `Pydantic`, `OpenAPI /docs` |
+| Reasoning | Vertex AI (Gemini 2.5 Flash) | Traducción semántica con prompt por tono/cultura |
+| Persistencia | PostgreSQL (Neon) | Caché `hash_id + perfil` y trazabilidad |
+| Infra | Docker + Cloud Run | Deploy serverless con auto-escalado |
+| CI/CD | Cloud Build + GitHub | Build y deploy en push a `main` |
+
+## 📦 Estructura
+
+```
+.
+├── src/
+│   ├── main.py        # FastAPI app + POST /translate
+│   ├── engine.py      # Cliente Vertex AI
+│   ├── crud.py        # get_bulk_cached_translations / save_translation
+│   ├── database.py    # Conexión psycopg2 + test_connection
+│   ├── schemas.py     # Pydantic TranslationRequest/Response
+│   └── config.py      # settings desde .env
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+└── README.md
+```
+
+## 🚀 Inicio rápido con Docker (recomendado)
+
+```bash
+# 1. Variables de entorno
+cp .env.example .env
+# editar DATABASE_URL, GOOGLE_PROJECT_ID, GOOGLE_LOCATION
+
+# 2. Credencial GCP (si usas Vertex AI real)
+# colocar service-account.json y mapear en docker-compose.yml
+
+# 3. Levantar
+docker-compose up --build -d
+
+# API en http://localhost:8000  |  Docs en http://localhost:8000/docs
+```
+
+## 🔧 Configuración manual
+
+**Requisitos:** `Python 3.12+`, `PostgreSQL 14+`, `GCP` con `Vertex AI API` habilitada.
+
+```bash
+python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn src.main:app --reload --port 8000
+```
+
+**.env**
+
+```env
+DATABASE_URL=postgresql://user:pass@host:5432/babelzilla
+GOOGLE_PROJECT_ID=tu-proyecto-gcp
+GOOGLE_LOCATION=us-central1
+GOOGLE_APPLICATION_CREDENTIALS=./service-account.json
+```
+
+**Inicialización DB (Neon/local):**
 
 ```sql
 CREATE TABLE IF NOT EXISTS textos_originales (
@@ -83,7 +101,6 @@ CREATE TABLE IF NOT EXISTS textos_originales (
     hash_id VARCHAR(255) UNIQUE NOT NULL,
     contenido_original TEXT NOT NULL
 );
-
 CREATE TABLE IF NOT EXISTS perfiles_localizacion (
     id SERIAL PRIMARY KEY,
     idioma_destino VARCHAR(50) NOT NULL,
@@ -91,7 +108,6 @@ CREATE TABLE IF NOT EXISTS perfiles_localizacion (
     contexto_cultural VARCHAR(100) NOT NULL,
     UNIQUE(idioma_destino, tono, contexto_cultural)
 );
-
 CREATE TABLE IF NOT EXISTS traducciones (
     id SERIAL PRIMARY KEY,
     id_original INTEGER REFERENCES textos_originales(id) ON DELETE CASCADE,
@@ -100,37 +116,72 @@ CREATE TABLE IF NOT EXISTS traducciones (
 );
 ```
 
----
-
-## 📡 Cómo usar mi API
+## 📡 Uso de la API
 
 ### `POST /translate`
-Envía tus textos para ser localizados.
 
-**Ejemplo de solicitud:**
+**Request (payload mode — recomendado para i18n):**
+
 ```json
 {
-  "payload": {
-    "WELCOME": "Welcome back, {{user}}!"
-  },
+  "payload": { "WELCOME": "Welcome back, {{user}}!" },
   "target_lang": "Spanish",
   "tone": "Casual",
   "culture": "Peruvian"
 }
 ```
 
-**Mi respuesta:**
+**Request (batch mode):**
+
 ```json
 {
-  "translated_payload": {
-    "WELCOME": "¡Qué bueno verte de nuevo, {{user}}!"
-  },
+  "texts": ["Hello", "Good morning"],
+  "target_lang": "Spanish",
+  "tone": "Formal",
+  "culture": "Neutral"
+}
+```
+
+**Response:**
+
+```json
+{
+  "translated_payload": { "WELCOME": "¡Qué bueno verte de nuevo, {{user}}!" },
+  "from_cache": false
+}
+```
+
+```json
+{
+  "translations": ["Hola", "Buenos días"],
   "from_cache": true
 }
 ```
 
+Otros endpoints: `GET /` health, `GET /docs` Swagger, `GET /test-brain` test Vertex AI.
+
+## ⚡ Performance
+
+- `cache hit`: `~2-5ms` (PostgreSQL `hash` lookup)
+- `cache miss`: `~400-900ms` (Gemini 2.5 Flash batch 1-10 textos) + persistencia
+- Batch reduce costo y latencia vs 1 request por texto
+
+## 🛡️ Seguridad
+
+- `.env` y `service-account.json` ignorados por `.gitignore`
+- Historial limpiado en `v2.1` — sin credenciales en Git
+- Validación `Pydantic` y `CORS` configurable en `src/main.py`
+
+## 🗺️ Roadmap
+
+- [ ] `tests` con `pytest + Testcontainers` + `CI` en GitHub Actions
+- [ ] Rate limiting + métricas `Prometheus`
+- [ ] Perfil `tone` por tenant
+
+## 📄 Licencia
+
+MIT — ver `LICENSE`.
+
 ---
 
-<div align="center">
-  <p><b>Babel-Zilla Engine</b> - <i>"Traduciendo el futuro, una frase a la vez."</i></p>
-</div>
+**Babel Zilla Engine** — *Traduciendo el futuro, una frase a la vez.*
